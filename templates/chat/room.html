@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}Salon: {{ room_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="chat-container p-4">
+        <!-- En-tête du salon -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h3>#{{ room_name }}</h3>
+                {% if room.description %}
+                <p class="text-muted">{{ room.description }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <a href="{% url 'chat:lobby' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour
+                </a>
+            </div>
+        </div>
+
+        <!-- Zone de chat -->
+        <div class="row">
+            <div class="col-md-9">
+                <!-- Messages -->
+                <div id="chat-messages" style="height: 500px; overflow-y: auto;" class="mb-3 p-3 border rounded">
+                    <!-- Les messages seront chargés ici via JavaScript -->
+                </div>
+
+                <!-- Formulaire d'envoi -->
+                <div class="input-group">
+                    <input type="text" id="chat-message-input" class="form-control" 
+                           placeholder="Tapez votre message..." autocomplete="off">
+                    <button id="chat-message-submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Envoyer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Informations du salon -->
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h5>Informations</h5>
+                    <p><strong>Créé le :</strong> {{ room.created_at|date:"d/m/Y" }}</p>
+                    <hr>
+                    <h6>Membres en ligne</h6>
+                    <div id="online-users">
+                        <!-- Les utilisateurs en ligne seront ajoutés ici -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ room_name|json_script:"room-name" }}
+{{ request.user.username|json_script:"username" }}
+{{ request.user.avatar.url|json_script:"user-avatar" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const roomName = JSON.parse(document.getElementById('room-name').textContent);
+    const userName = JSON.parse(document.getElementById('username').textContent);
+    const userAvatar = JSON.parse(document.getElementById('user-avatar').textContent);
+    
+    // Construction de l'URL WebSocket
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsPath = `${wsScheme}://${window.location.host}/ws/chat/${roomName}/`;
+    const chatSocket = new WebSocket(wsPath);
+    
+    // Éléments DOM
+    const chatMessages = document.getElementById('chat-messages');
+    const messageInput = document.getElementById('chat-message-input');
+    const messageSubmit = document.getElementById('chat-message-submit');
+    
+    // Gestion de la réception des messages
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        
+        switch(data.type) {
+            case 'chat_message':
+                addMessage(data.username, data.message, data.avatar, true);
+                break;
+            case 'old_message':
+                addMessage(data.username, data.message, data.avatar, false);
+                break;
+            case 'user_joined':
+                addSystemMessage(`${data.username} a rejoint le chat`, 'success');
+                break;
+            case 'user_left':
+                addSystemMessage(`${data.username} a quitté le chat`, 'warning');
+                break;
+        }
+    };
+    
+    // Gestion des erreurs
+    chatSocket.onerror = function(e) {
+        console.error('WebSocket error:', e);
+        addSystemMessage('Erreur de connexion', 'danger');
+    };
+    
+    // Gestion de la déconnexion
+    chatSocket.onclose = function(e) {
+        console.log('WebSocket disconnected');
+        addSystemMessage('Déconnecté du serveur', 'info');
+    };
+    
+    // Envoi de message
+    function sendMessage() {
+        const message = messageInput.value.trim();
+        if (message && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+            messageInput.value = '';
+        }
+    }
+    
+    // Ajout d'un message à l'interface
+    function addMessage(username, message, avatar, isNew = true) {
+        const isCurrentUser = username === userName;
+        const messageClass = isCurrentUser ? 'sent' : 'received';
+        const alignClass = isCurrentUser ? 'ms-auto' : '';
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `d-flex mb-2 ${alignClass}`;
+        messageDiv.style.maxWidth = '70%';
+        
+        if (!isCurrentUser) {
+            messageDiv.innerHTML = `
+                <img src="${avatar}" class="rounded-circle me-2" width="40" height="40">
+                <div>
+                    <div class="message ${messageClass}">
+                        <small class="text-muted">${username}</small><br>
+                        ${message}
+                        ${isNew ? '<small class="text-muted float-end">maintenant</small>' : ''}
+                    </div>
+                </div>
+            `;
+        } else {
+            messageDiv.innerHTML = `
+                <div class="message ${messageClass}">
+                    <small class="text-muted">Vous</small><br>
+                    ${message}
+                    ${isNew ? '<small class="text-muted float-end">maintenant</small>' : ''}
+                </div>
+            `;
+        }
+        
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Ajout d'un message système
+    function addSystemMessage(message, type = 'info') {
+        const systemDiv = document.createElement('div');
+        systemDiv.className = `alert alert-${type} text-center py-1 my-2`;
+        systemDiv.textContent = message;
+        chatMessages.appendChild(systemDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Événements
+    messageSubmit.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+    
+    // Scroll automatique vers le bas
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+</script>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Salon Principal{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <!-- Liste des salons -->
+        <div class="col-md-8">
+            <div class="chat-container p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3>Salons de discussion</h3>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+                        <i class="fas fa-plus"></i> Créer un salon
+                    </button>
+                </div>
+                
+                <div class="row">
+                    {% for room in rooms %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">#{{ room.name }}</h5>
+                                <p class="card-text text-muted">{{ room.description|truncatechars:50 }}</p>
+                                <a href="{% url 'chat:room' room.name %}" class="btn btn-outline-primary btn-sm">
+                                    Rejoindre
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <p class="text-center text-muted">Aucun salon disponible. Créez-en un !</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Utilisateurs en ligne -->
+        <div class="col-md-4">
+            <div class="chat-container p-4">
+                <h4>Utilisateurs en ligne <span class="online-dot"></span></h4>
+                <div class="list-group">
+                    {% for user in online_users %}
+                    <div class="list-group-item">
+                        <div class="d-flex align-items-center">
+                            <img src="{{ user.avatar.url }}" alt="{{ user.username }}" 
+                                 class="rounded-circle me-2" width="40" height="40">
+                            <div>
+                                <strong>{{ user.username }}</strong>
+                                <br>
+                                <small class="text-muted">{{ user.bio|truncatechars:30 }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">Aucun utilisateur en ligne</p>
+                    {% endfor %}
+                </div>
+
+                <hr>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'logout' %}" class="btn btn-danger">Déconnexion</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour créer un salon -->
+<div class="modal fade" id="createRoomModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Créer un nouveau salon</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'chat:create_room' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="room_name" class="form-label">Nom du salon</label>
+                        <input type="text" class="form-control" id="room_name" name="room_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (optionnel)</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Créer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -106,3 +106,57 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = 3600  # 1 heure
 AUTH_USER_MODEL = 'accounts.CustomUser'
+
+
+
+import os
+
+# Render production settings
+if 'RENDER' in os.environ:
+    # Security settings
+    DEBUG = False
+    
+    # Allow all hosts for now (we'll fix after we know the URL)
+    ALLOWED_HOSTS = ['*']
+    
+    # Once deployed, update with your actual Render URL:
+    # ALLOWED_HOSTS = ['your-app-name.onrender.com', 'localhost', '127.0.0.1']
+    
+    # CSRF settings
+    CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
+    
+    # Static files configuration
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    
+    # Use in-memory channel layer (since we can't have Redis on free tier)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer'
+        }
+    }
+    
+    # Security settings
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    
+    # Logging
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+            },
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['console'],
+                'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            },
+        },
+    }

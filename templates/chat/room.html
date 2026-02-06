@@ -6,16 +6,16 @@
 <div class="container py-4">
     <div class="chat-container p-4">
         <!-- En-tête du salon -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom: 1px solid rgba(102,126,234,0.08);">
             <div>
-                <h3>#{{ room_name }}</h3>
+                <h3 class="mb-1"><i class="fas fa-hashtag text-primary me-2"></i>{{ room_name }}</h3>
                 {% if room.description %}
-                <p class="text-muted">{{ room.description }}</p>
+                <p class="text-muted mb-0">{{ room.description }}</p>
                 {% endif %}
             </div>
             <div>
                 <a href="{% url 'chat:lobby' %}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Retour
+                    <i class="fas fa-arrow-left me-2"></i>Retour aux salons
                 </a>
             </div>
         </div>
@@ -24,27 +24,30 @@
         <div class="row">
             <div class="col-md-9">
                 <!-- Messages -->
-                <div id="chat-messages" style="height: 500px; overflow-y: auto;" class="mb-3 p-3 border rounded">
+                <div id="chat-messages" class="mb-4 p-4 border rounded" style="height: 500px; overflow-y: auto; background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1);">
                     <!-- Les messages seront chargés ici via JavaScript -->
                 </div>
 
                 <!-- Formulaire d'envoi -->
                 <div class="input-group">
-                    <input type="text" id="chat-message-input" class="form-control" 
-                           placeholder="Tapez votre message..." autocomplete="off">
-                    <button id="chat-message-submit" class="btn btn-primary">
-                        <i class="fas fa-paper-plane"></i> Envoyer
+                    <input type="text" id="chat-message-input" class="form-control form-control-lg"
+                           placeholder="Tapez votre message..." autocomplete="off" style="border-radius: 25px 0 0 25px;">
+                    <button id="chat-message-submit" class="btn btn-primary btn-lg px-4" style="border-radius: 0 25px 25px 0;">
+                        <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
             </div>
 
             <!-- Informations du salon -->
             <div class="col-md-3">
-                <div class="border rounded p-3">
-                    <h5>Informations</h5>
-                    <p><strong>Créé le :</strong> {{ room.created_at|date:"d/m/Y" }}</p>
-                    <hr>
-                    <h6>Membres en ligne</h6>
+                <div class="rounded p-4" style="background: rgba(26,26,46,0.98); border: 1px solid rgba(102,126,234,0.08);">
+                    <h5 class="mb-3 text-light"><i class="fas fa-info-circle text-primary me-2"></i>Informations</h5>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Créé le</small>
+                        <strong class="text-light">{{ room.created_at|date:"d/m/Y à H:i" }}</strong>
+                    </div>
+                    <hr style="border-color: rgba(102,126,234,0.08);">
+                    <h6 class="mb-3 text-light"><i class="fas fa-users text-success me-2"></i>Membres en ligne</h6>
                     <div id="online-users">
                         <!-- Les utilisateurs en ligne seront ajoutés ici -->
                     </div>
@@ -88,9 +91,14 @@
                 break;
             case 'user_joined':
                 addSystemMessage(`${data.username} a rejoint le chat`, 'success');
+                updateOnlineUsers(data.online_users);
                 break;
             case 'user_left':
                 addSystemMessage(`${data.username} a quitté le chat`, 'warning');
+                updateOnlineUsers(data.online_users);
+                break;
+            case 'online_users':
+                updateOnlineUsers(data.online_users);
                 break;
         }
     };
@@ -122,33 +130,27 @@
     function addMessage(username, message, avatar, isNew = true) {
         const isCurrentUser = username === userName;
         const messageClass = isCurrentUser ? 'sent' : 'received';
-        const alignClass = isCurrentUser ? 'ms-auto' : '';
-        
+        const alignClass = isCurrentUser ? 'justify-content-end' : 'justify-content-start';
         const messageDiv = document.createElement('div');
-        messageDiv.className = `d-flex mb-2 ${alignClass}`;
-        messageDiv.style.maxWidth = '70%';
-        
+        messageDiv.className = `d-flex mb-3 ${alignClass}`;
         if (!isCurrentUser) {
             messageDiv.innerHTML = `
-                <img src="${avatar}" class="rounded-circle me-2" width="40" height="40">
-                <div>
-                    <div class="message ${messageClass}">
-                        <small class="text-muted">${username}</small><br>
-                        ${message}
-                        ${isNew ? '<small class="text-muted float-end">maintenant</small>' : ''}
+                <div class="d-flex align-items-start" style="max-width: 75%;">
+                    <img src="${avatar}" class="rounded-circle me-3 border" width="40" height="40" style="object-fit: cover;">
+                    <div class="message ${messageClass}" style="border-radius: 18px;">
+                        <div>${message}</div>
+                        ${isNew ? '<small class="text-muted float-end mt-1">maintenant</small>' : ''}
                     </div>
                 </div>
             `;
         } else {
             messageDiv.innerHTML = `
-                <div class="message ${messageClass}">
-                    <small class="text-muted">Vous</small><br>
-                    ${message}
-                    ${isNew ? '<small class="text-muted float-end">maintenant</small>' : ''}
+                <div class="message ${messageClass}" style="max-width: 75%; border-radius: 18px;">
+                    <div>${message}</div>
+                    ${isNew ? '<small class="text-muted float-end mt-1">maintenant</small>' : ''}
                 </div>
             `;
         }
-        
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -156,10 +158,32 @@
     // Ajout d'un message système
     function addSystemMessage(message, type = 'info') {
         const systemDiv = document.createElement('div');
-        systemDiv.className = `alert alert-${type} text-center py-1 my-2`;
+        systemDiv.className = `alert alert-${type} text-center py-2 my-2`;
         systemDiv.textContent = message;
         chatMessages.appendChild(systemDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Mise à jour de la liste des utilisateurs en ligne
+    function updateOnlineUsers(users) {
+        const onlineUsersDiv = document.getElementById('online-users');
+        onlineUsersDiv.innerHTML = '';
+        
+        if (users && users.length > 0) {
+            users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'd-flex align-items-center mb-2';
+                userDiv.innerHTML = `
+                    <img src="${user.avatar}" class="rounded-circle me-2 border" width="32" height="32" style="object-fit: cover;">
+                    <div>
+                        <small class="fw-semibold">${user.username}</small>
+                    </div>
+                `;
+                onlineUsersDiv.appendChild(userDiv);
+            });
+        } else {
+            onlineUsersDiv.innerHTML = '<small class="text-muted">Aucun membre en ligne</small>';
+        }
     }
     
     // Événements

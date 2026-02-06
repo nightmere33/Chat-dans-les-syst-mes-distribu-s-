@@ -30,7 +30,7 @@ python -m venv venv
 # Mac/Linux : source venv/bin/activate
 
 # 3. Dépendances
-pip install django channels channels-redis daphne pillow
+pip install -r requirements.txt
 
 # 4. Configuration
 django-admin startproject chat_project .

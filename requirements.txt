@@ -1,0 +1,6 @@
+channels
+crispy-bootstrap5
+crispy-forms
+daphne
+Django
+pillow

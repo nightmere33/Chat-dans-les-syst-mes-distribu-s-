@@ -1,0 +1,11 @@
+Django
+channels
+channels-redis
+daphne
+asgiref
+Pillow
+whitenoise
+psycopg2-binary
+gunicorn
+dj-database-url
+redis

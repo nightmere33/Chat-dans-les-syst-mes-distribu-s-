@@ -6,16 +6,16 @@
 <div class="container py-4">
     <div class="chat-container p-4">
         <!-- En-tête du salon -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom: 1px solid rgba(102,126,234,0.08);">
             <div>
-                <h3>#{{ room_name }}</h3>
+                <h3 class="mb-1"><i class="fas fa-hashtag text-primary me-2"></i>{{ room_name }}</h3>
                 {% if room.description %}
-                <p class="text-muted">{{ room.description }}</p>
+                <p class="text-muted mb-0">{{ room.description }}</p>
                 {% endif %}
             </div>
             <div>
                 <a href="{% url 'chat:lobby' %}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Retour
+                    <i class="fas fa-arrow-left me-2"></i>Retour aux salons
                 </a>
             </div>
         </div>
@@ -24,27 +24,30 @@
         <div class="row">
             <div class="col-md-9">
                 <!-- Messages -->
-                <div id="chat-messages" style="height: 500px; overflow-y: auto;" class="mb-3 p-3 border rounded">
+                <div id="chat-messages" class="mb-4 p-4 border rounded" style="height: 500px; overflow-y: auto; background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1);">
                     <!-- Les messages seront chargés ici via JavaScript -->
                 </div>
 
                 <!-- Formulaire d'envoi -->
                 <div class="input-group">
-                    <input type="text" id="chat-message-input" class="form-control" 
-                           placeholder="Tapez votre message..." autocomplete="off">
-                    <button id="chat-message-submit" class="btn btn-primary">
-                        <i class="fas fa-paper-plane"></i> Envoyer
+                    <input type="text" id="chat-message-input" class="form-control form-control-lg"
+                           placeholder="Tapez votre message..." autocomplete="off" style="border-radius: 25px 0 0 25px;">
+                    <button id="chat-message-submit" class="btn btn-primary btn-lg px-4" style="border-radius: 0 25px 25px 0;">
+                        <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
             </div>
 
             <!-- Informations du salon -->
             <div class="col-md-3">
-                <div class="border rounded p-3">
-                    <h5>Informations</h5>
-                    <p><strong>Créé le :</strong> {{ room.created_at|date:"d/m/Y" }}</p>
-                    <hr>
-                    <h6>Membres en ligne</h6>
+                <div class="rounded p-4" style="background: rgba(26,26,46,0.98); border: 1px solid rgba(102,126,234,0.08);">
+                    <h5 class="mb-3 text-light"><i class="fas fa-info-circle text-primary me-2"></i>Informations</h5>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Créé le</small>
+                        <strong class="text-light">{{ room.created_at|date:"d/m/Y à H:i" }}</strong>
+                    </div>
+                    <hr style="border-color: rgba(102,126,234,0.08);">
+                    <h6 class="mb-3 text-light"><i class="fas fa-users text-success me-2"></i>Membres en ligne</h6>
                     <div id="online-users">
                         <!-- Les utilisateurs en ligne seront ajoutés ici -->
                     </div>
@@ -75,22 +78,54 @@
     const messageInput = document.getElementById('chat-message-input');
     const messageSubmit = document.getElementById('chat-message-submit');
     
+    // Stocker les utilisateurs en ligne
+    let onlineUsers = [];
+    
     // Gestion de la réception des messages
     chatSocket.onmessage = function(e) {
         const data = JSON.parse(e.data);
         
         switch(data.type) {
             case 'chat_message':
-                addMessage(data.username, data.message, data.avatar, true);
-                break;
+                // Message de quelqu'un d'autre
+                addMessage(
+                data.id, 
+                data.username, 
+                data.message, 
+                data.avatar, 
+                data.timestamp, 
+                data.is_current_user, // Nouveau paramètre
+                data.is_current_user ? 'sent' : 'none' // Statut initial
+            );
+            break;
             case 'old_message':
-                addMessage(data.username, data.message, data.avatar, false);
-                break;
+                // Messages historiques
+                addMessage(
+                data.id, 
+                data.username, 
+                data.message, 
+                data.avatar, 
+                data.timestamp, 
+                userName === data.username, // Vérifier si c'est l'utilisateur
+                userName === data.username ? 'seen' : 'none'
+            );
+            break;
             case 'user_joined':
                 addSystemMessage(`${data.username} a rejoint le chat`, 'success');
+                if (data.avatar) {
+                    addOnlineUser(data.username, data.avatar);
+                }
                 break;
             case 'user_left':
                 addSystemMessage(`${data.username} a quitté le chat`, 'warning');
+                removeOnlineUser(data.username);
+                break;
+            case 'online_users':
+                updateOnlineUsersList(data.online_users);
+                break;
+            case 'message_status_update':
+                // Mise à jour du statut (sent → delivered → seen)
+                updateMessageStatus(data.message_id, data.status);
                 break;
         }
     };
@@ -111,55 +146,246 @@
     function sendMessage() {
         const message = messageInput.value.trim();
         if (message && chatSocket.readyState === WebSocket.OPEN) {
+            // Désactiver le bouton pendant l'envoi
+            messageSubmit.disabled = true;
+            messageSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            // Envoyer le message
             chatSocket.send(JSON.stringify({
                 'message': message
             }));
+            
+            // Message apparaît IMMÉDIATEMENT avec statut "sent"
+            //const tempId = Date.now();
+            //const timestamp = new Date().toISOString();
+           // addMessage(tempId, userName, message, userAvatar, timestamp, true, 'sent');
+            
+            // Réactiver le bouton après 1 seconde
+            setTimeout(() => {
+                messageSubmit.disabled = false;
+                messageSubmit.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            }, 1000);
+            
             messageInput.value = '';
         }
     }
     
+    // Formater l'heure comme Instagram (HH:MM)
+    function formatTime(timestamp) {
+        if (!timestamp) return '';
+        
+        try {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            // Si moins d'une minute : "À l'instant"
+            if (diffMins < 1) {
+                return 'À l\'instant';
+            }
+            // Si moins d'une heure : "Il y a X min"
+            else if (diffMins < 60) {
+                return `Il y a ${diffMins} min`;
+            }
+            // Sinon : heure complète
+            else {
+                return date.toLocaleTimeString('fr-FR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                });
+            }
+        } catch (e) {
+            return '';
+        }
+    }
+    
+    // Obtenir l'icône de statut Instagram-style
+    function getStatusIcon(status) {
+        switch(status) {
+            case 'sent':
+                return '<i class="fas fa-check text-muted"></i>';
+            case 'delivered':
+                return '<i class="fas fa-check-double text-muted"></i>';
+            case 'seen':
+                return '<i class="fas fa-check-double text-primary"></i>';
+            default:
+                return '<i class="fas fa-check text-muted"></i>';
+        }
+    }
+    
+    // Obtenir le texte de statut
+    function getStatusText(status) {
+        switch(status) {
+            case 'sent': return 'Envoyé';
+            case 'delivered': return 'Livré';
+            case 'seen': return 'Vu';
+            default: return '';
+        }
+    }
+    
     // Ajout d'un message à l'interface
-    function addMessage(username, message, avatar, isNew = true) {
-        const isCurrentUser = username === userName;
-        const messageClass = isCurrentUser ? 'sent' : 'received';
-        const alignClass = isCurrentUser ? 'ms-auto' : '';
+    function addMessage(id, username, message, avatar, timestamp, isCurrentUser = false, status = 'none') {
+        // Vérifier si le message existe déjà (éviter les doublons)
+        if (document.querySelector(`[data-message-id="${id}"]`)) {
+            return;
+        }
         
         const messageDiv = document.createElement('div');
-        messageDiv.className = `d-flex mb-2 ${alignClass}`;
-        messageDiv.style.maxWidth = '70%';
+        messageDiv.className = `message-container ${isCurrentUser ? 'current-user' : 'other-user'} mb-4`;
+        messageDiv.dataset.messageId = id;
+        
+        const timeDisplay = formatTime(timestamp);
         
         if (!isCurrentUser) {
+            // Message de quelqu'un d'autre (comme Instagram)
             messageDiv.innerHTML = `
-                <img src="${avatar}" class="rounded-circle me-2" width="40" height="40">
-                <div>
-                    <div class="message ${messageClass}">
-                        <small class="text-muted">${username}</small><br>
-                        ${message}
-                        ${isNew ? '<small class="text-muted float-end">maintenant</small>' : ''}
+                <div class="d-flex align-items-start">
+                    <img src="${avatar}" class="rounded-circle me-3 border" width="45" height="45" style="object-fit: cover;">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-1">
+                            <strong class="text-light me-2">${username}</strong>
+                            <small class="text-muted">${timeDisplay}</small>
+                        </div>
+                        <div class="message-bubble bg-dark border" style="border-radius: 18px; padding: 12px 16px; max-width: 80%; border-color: rgba(255,255,255,0.1) !important;">
+                            <div class="text-light">${message}</div>
+                        </div>
                     </div>
                 </div>
             `;
         } else {
+            // Votre message (aligné à droite) - Instagram style
+            let statusHtml = '';
+            if (status !== 'none') {
+                statusHtml = `
+                    <div class="d-flex align-items-center justify-content-end mt-1">
+                        <small class="text-muted me-2">${timeDisplay}</small>
+                        <span class="status-icon">${getStatusIcon(status)}</span>
+                        <small class="status-text text-muted ms-1" style="font-size: 0.75rem;">${getStatusText(status)}</small>
+                    </div>
+                `;
+            } else {
+                statusHtml = `<small class="text-muted d-block mt-1 text-end">${timeDisplay}</small>`;
+            }
+            
             messageDiv.innerHTML = `
-                <div class="message ${messageClass}">
-                    <small class="text-muted">Vous</small><br>
-                    ${message}
-                    ${isNew ? '<small class="text-muted float-end">maintenant</small>' : ''}
+                <div class="d-flex justify-content-end">
+                    <div class="text-end" style="max-width: 80%;">
+                        <div class="message-bubble bg-primary text-white" style="border-radius: 18px; padding: 12px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;">
+                            <div>${message}</div>
+                        </div>
+                        ${statusHtml}
+                    </div>
                 </div>
             `;
+            
+            // Animation pour le statut "sent"
+            if (status === 'sent') {
+                const statusIcon = messageDiv.querySelector('.status-icon');
+                if (statusIcon) {
+                    statusIcon.classList.add('sending-animation');
+                }
+            }
         }
         
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
+    // Mettre à jour le statut d'un message
+    function updateMessageStatus(messageId, status) {
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            const statusIcon = messageElement.querySelector('.status-icon');
+            const statusText = messageElement.querySelector('.status-text');
+            
+            if (statusIcon) {
+                statusIcon.innerHTML = getStatusIcon(status);
+                statusIcon.classList.remove('sending-animation');
+                
+                // Animation pour le passage à "vu"
+                if (status === 'seen') {
+                    statusIcon.classList.add('pulse-animation');
+                    setTimeout(() => {
+                        statusIcon.classList.remove('pulse-animation');
+                    }, 1000);
+                }
+            }
+            
+            if (statusText) {
+                statusText.textContent = getStatusText(status);
+            }
+        }
+    }
+    
     // Ajout d'un message système
     function addSystemMessage(message, type = 'info') {
         const systemDiv = document.createElement('div');
-        systemDiv.className = `alert alert-${type} text-center py-1 my-2`;
-        systemDiv.textContent = message;
+        systemDiv.className = `text-center my-3`;
+        systemDiv.innerHTML = `
+            <span class="badge bg-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info'} bg-opacity-25 text-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info'} px-3 py-2" style="font-weight: normal;">
+                ${message}
+            </span>
+        `;
         chatMessages.appendChild(systemDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Mise à jour de la liste des utilisateurs en ligne
+    function updateOnlineUsersList(users) {
+        onlineUsers = users;
+        const onlineUsersDiv = document.getElementById('online-users');
+        onlineUsersDiv.innerHTML = '';
+        
+        if (users && users.length > 0) {
+            // Afficher le compteur
+            const counter = document.createElement('div');
+            counter.className = 'mb-3';
+            counter.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="online-dot me-2"></div>
+                    <span class="text-light fw-semibold">${users.length} en ligne</span>
+                </div>
+            `;
+            onlineUsersDiv.appendChild(counter);
+            
+            // Afficher chaque utilisateur
+            users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'd-flex align-items-center mb-3';
+                userDiv.innerHTML = `
+                    <div class="position-relative">
+                        <img src="${user.avatar}" class="rounded-circle border" width="40" height="40" style="object-fit: cover; border-color: rgba(102,126,234,0.3) !important;">
+                        <span class="online-dot position-absolute" style="bottom: 0; right: 0; width: 10px; height: 10px;"></span>
+                    </div>
+                    <div class="ms-3">
+                        <div class="text-light fw-semibold">${user.username}</div>
+                        ${user.bio ? `<small class="text-muted">${user.bio}</small>` : ''}
+                    </div>
+                `;
+                onlineUsersDiv.appendChild(userDiv);
+            });
+        } else {
+            onlineUsersDiv.innerHTML = `
+                <div class="text-center py-3">
+                    <i class="fas fa-user-slash text-muted fs-4 mb-2"></i>
+                    <div class="text-muted">Aucun membre en ligne</div>
+                </div>
+            `;
+        }
+    }
+    
+    function addOnlineUser(username, avatar) {
+        if (!onlineUsers.some(user => user.username === username)) {
+            onlineUsers.push({username, avatar});
+            updateOnlineUsersList(onlineUsers);
+        }
+    }
+    
+    function removeOnlineUser(username) {
+        onlineUsers = onlineUsers.filter(user => user.username !== username);
+        updateOnlineUsersList(onlineUsers);
     }
     
     // Événements
@@ -170,7 +396,93 @@
         }
     });
     
+    // Focus automatique sur le champ de message
+    messageInput.focus();
+    
     // Scroll automatique vers le bas
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Ajouter du CSS pour les animations
+    const style = document.createElement('style');
+    style.textContent = `
+        .message-bubble {
+            position: relative;
+            word-wrap: break-word;
+            transition: all 0.3s ease;
+        }
+        .message-bubble:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .other-user .message-bubble::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 10px 10px 0;
+            border-color: transparent rgba(255,255,255,0.1) transparent transparent;
+            left: -8px;
+            top: 0;
+        }
+        .current-user .message-bubble::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 0 10px 10px;
+            border-color: transparent transparent transparent rgba(102,126,234,1);
+            right: -8px;
+            top: 0;
+        }
+        .online-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #28a745;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .pulse-animation {
+            animation: pulse-blue 0.5s ease-in-out;
+        }
+        @keyframes pulse-blue {
+            0% { transform: scale(1); color: #667eea; }
+            50% { transform: scale(1.2); color: #764ba2; }
+            100% { transform: scale(1); color: #667eea; }
+        }
+        .sending-animation {
+            animation: sending 1.5s infinite;
+        }
+        @keyframes sending {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+        #chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-messages::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(102,126,234,0.5);
+            border-radius: 10px;
+        }
+        #chat-messages::-webkit-scrollbar-thumb:hover {
+            background: rgba(102,126,234,0.8);
+        }
+        .status-text {
+            transition: all 0.3s ease;
+        }
+    `;
+    document.head.appendChild(style);
 </script>
 {% endblock %}

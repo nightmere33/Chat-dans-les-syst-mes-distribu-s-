@@ -1,7 +1,10 @@
 Django
 channels
+channels-redis
 daphne
 asgiref
 Pillow
 whitenoise
 gunicorn
+django-crispy-forms
+crispy-bootstrap5

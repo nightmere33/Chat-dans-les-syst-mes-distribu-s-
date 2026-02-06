@@ -9,28 +9,42 @@
         <div class="col-md-8">
             <div class="chat-container p-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h3>Salons de discussion</h3>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRoomModal">
-                        <i class="fas fa-plus"></i> Créer un salon
+                    <div>
+                        <h3 class="mb-0"><i class="fas fa-hashtag me-2 text-primary"></i>Salons de discussion</h3>
+                        <p class="text-muted mt-1">Rejoignez ou créez un salon pour commencer à discuter</p>
+                    </div>
+                    <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+                        <i class="fas fa-plus me-2"></i>Créer un salon
                     </button>
                 </div>
-                
+
                 <div class="row">
                     {% for room in rooms %}
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-body">
-                                <h5 class="card-title">#{{ room.name }}</h5>
-                                <p class="card-text text-muted">{{ room.description|truncatechars:50 }}</p>
-                                <a href="{% url 'chat:room' room.name %}" class="btn btn-outline-primary btn-sm">
-                                    Rejoindre
-                                </a>
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body d-flex flex-column">
+                                <div class="d-flex align-items-start mb-3">
+                                    <div class="bg-primary bg-opacity-25 rounded-circle p-2 me-3">
+                                        <i class="fas fa-hashtag text-primary fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h5 class="card-title mb-1 text-light">{{ room.name }}</h5>
+                                        <p class="card-text text-muted small">{{ room.description|truncatechars:80 }}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-auto">
+                                    <a href="{% url 'chat:room' room.name %}" class="btn btn-outline-primary w-100">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Rejoindre
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
                     {% empty %}
-                    <div class="col-12">
-                        <p class="text-center text-muted">Aucun salon disponible. Créez-en un !</p>
+                    <div class="col-12 text-center py-5">
+                        <i class="fas fa-comments text-muted fs-1 mb-3"></i>
+                        <h5 class="text-muted">Aucun salon disponible</h5>
+                        <p class="text-muted">Créez le premier salon pour commencer !</p>
                     </div>
                     {% endfor %}
                 </div>
@@ -39,29 +53,29 @@
 
         <!-- Utilisateurs en ligne -->
         <div class="col-md-4">
-            <div class="chat-container p-4">
-                <h4>Utilisateurs en ligne <span class="online-dot"></span></h4>
-                <div class="list-group">
+            <div class="chat-container p-4" style="background: rgba(26,26,46,0.98);">
+                <div class="d-flex align-items-center mb-4">
+                    <h4 class="mb-0 me-2 text-light"><i class="fas fa-users text-success me-2"></i>Utilisateurs en ligne</h4>
+                    <span class="online-dot"></span>
+                </div>
+                <div class="list-group list-group-flush">
                     {% for user in online_users %}
-                    <div class="list-group-item">
+                    <div class="list-group-item border-0 px-0 py-3" style="background: transparent;">
                         <div class="d-flex align-items-center">
-                            <img src="{{ user.avatar.url }}" alt="{{ user.username }}" 
-                                 class="rounded-circle me-2" width="40" height="40">
-                            <div>
-                                <strong>{{ user.username }}</strong>
-                                <br>
-                                <small class="text-muted">{{ user.bio|truncatechars:30 }}</small>
+                            <img src="{{ user.avatar.url }}" alt="{{ user.username }}"
+                                 class="rounded-circle me-3 border" width="48" height="48" style="object-fit: cover;">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 text-light">{{ user.username }}</h6>
+                                <p class="text-muted small mb-0">{{ user.bio|truncatechars:40 }}</p>
                             </div>
                         </div>
                     </div>
                     {% empty %}
-                    <p class="text-muted">Aucun utilisateur en ligne</p>
+                    <div class="text-center py-4">
+                        <i class="fas fa-user-slash text-muted fs-2 mb-2"></i>
+                        <p class="text-muted mb-0">Aucun utilisateur en ligne</p>
+                    </div>
                     {% endfor %}
-                </div>
-
-                <hr>
-                <div class="d-grid gap-2">
-                    <a href="{% url 'logout' %}" class="btn btn-danger">Déconnexion</a>
                 </div>
             </div>
         </div>
@@ -70,27 +84,37 @@
 
 <!-- Modal pour créer un salon -->
 <div class="modal fade" id="createRoomModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Créer un nouveau salon</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg chat-container">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-light"><i class="fas fa-plus-circle me-2 text-primary"></i>Créer un nouveau salon</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="post" action="{% url 'chat:create_room' %}">
                 {% csrf_token %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="room_name" class="form-label">Nom du salon</label>
-                        <input type="text" class="form-control" id="room_name" name="room_name" required>
+                <div class="modal-body p-4">
+                    <div class="mb-4">
+                        <label for="room_name" class="form-label fw-semibold text-light">
+                            <i class="fas fa-hashtag me-2 text-primary"></i>Nom du salon
+                        </label>
+                        <input type="text" class="form-control form-control-lg bg-transparent text-light border-secondary" id="room_name" name="room_name"
+                               placeholder="Entrez le nom du salon" required style="border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);">
                     </div>
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description (optionnel)</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    <div class="mb-4">
+                        <label for="description" class="form-label fw-semibold text-light">
+                            <i class="fas fa-align-left me-2 text-primary"></i>Description (optionnel)
+                        </label>
+                        <textarea class="form-control bg-transparent text-light border-secondary" id="description" name="description" rows="3"
+                                  placeholder="Décrivez brièvement le salon" style="border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); resize: none;"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                    <button type="submit" class="btn btn-primary">Créer</button>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary text-light border-secondary" data-bs-dismiss="modal" style="border-radius: 12px;">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="border-radius: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+                        <i class="fas fa-check me-2"></i>Créer
+                    </button>
                 </div>
             </form>
         </div>

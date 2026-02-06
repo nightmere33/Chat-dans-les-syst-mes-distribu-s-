@@ -116,33 +116,36 @@ if 'RENDER' in os.environ:
     # Security settings
     DEBUG = False
     
-    # Allow all hosts for now (we'll fix after we know the URL)
-    ALLOWED_HOSTS = ['*']
+    # Get the Render external hostname
+    RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+    if RENDER_EXTERNAL_HOSTNAME:
+        ALLOWED_HOSTS = [RENDER_EXTERNAL_HOSTNAME, 'localhost', '127.0.0.1']
+    else:
+        ALLOWED_HOSTS = ['*']  # Fallback
     
-    # Once deployed, update with your actual Render URL:
-    # ALLOWED_HOSTS = ['your-app-name.onrender.com', 'localhost', '127.0.0.1']
-    
-    # CSRF settings
-    CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
+    # CSRF settings - use your actual domain
+    CSRF_TRUSTED_ORIGINS = [f'https://{RENDER_EXTERNAL_HOSTNAME}'] if RENDER_EXTERNAL_HOSTNAME else []
     
     # Static files configuration
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
     
-    # Use in-memory channel layer (since we can't have Redis on free tier)
+    # Use in-memory channel layer
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels.layers.InMemoryChannelLayer'
         }
     }
     
-    # Security settings
+    # IMPORTANT: Disable SSL redirect on Render
+    SECURE_SSL_REDIRECT = False  # Set to False
+    
+    # Other security settings
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = False  # Set to False for Render
+    CSRF_COOKIE_SECURE = False     # Set to False for Render
     
     # Logging
     LOGGING = {
